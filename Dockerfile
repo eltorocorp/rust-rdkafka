@@ -1,13 +1,27 @@
-FROM ubuntu:16.04
+FROM ubuntu:latest
+
+COPY . /rdkafka
+
+WORKDIR /rdkafka
 
 RUN apt-get update
-RUN apt-get install -y build-essential
+RUN apt-get install -y build-essential gnupg
 RUN apt-get install -y curl
 RUN apt-get install -y openssl libssl-dev
 RUN apt-get install -y pkg-config
 RUN apt-get install -y valgrind
 RUN apt-get install -y zlib1g-dev
 RUN apt-get install -y python
+
+RUN apt-key add llvm-snapshot.gpg.key
+
+RUN echo "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-8 main" >> /etc/apt/sources.list
+RUN echo "deb-src http://apt.llvm.org/bionic/ llvm-toolchain-bionic-8 main" >> /etc/apt/sources.list
+
+
+RUN apt-get update
+RUN apt-get install -y lldb-8 lld-8 clang-8
+
 
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly
 ENV PATH /root/.cargo/bin/:$PATH
@@ -23,9 +37,3 @@ ENV PATH /root/.cargo/bin/:$PATH
 # RUN echo "fn main() {}" > /rdkafka/rdkafka-sys/build.rs
 #
 # RUN cd /rdkafka && test --no-run
-
-COPY docker/run_tests.sh /rdkafka/
-
-ENV KAFKA_HOST kafka:9092
-
-WORKDIR /rdkafka

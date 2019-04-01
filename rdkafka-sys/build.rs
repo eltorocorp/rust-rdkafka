@@ -124,6 +124,7 @@ fn build_librdkafka() {
     } else {
         config.define("WITH_SASL", "0");
     }
+    run_command_or_fail("librdkafka/src", "echo", &["'set_property(TARGET rdkafka PROPERTY INTERPROCEDURAL_OPTIMIZATION True)'", ">>", "CMakeLists.txt"]);
     let dst = config.build();
     println!("cargo:rustc-link-search=native={}/build/src", dst.display());
     println!("cargo:rustc-link-lib=static=rdkafka");
