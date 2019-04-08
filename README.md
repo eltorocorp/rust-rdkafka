@@ -8,6 +8,9 @@
 
 A fully asynchronous, [futures]-based Kafka client library for Rust based on [librdkafka].
 
+## LTO
+To build with LTO support
+`RUSTFLAGS="-Clinker-plugin-lto -Clinker=clang -Clink-arg=-fuse-ld=lld" cargo +nightly build --release -v`
 ## The library
 `rust-rdkafka` provides a safe Rust interface to librdkafka. The master branch is currently based on librdkafka 0.11.6.
 

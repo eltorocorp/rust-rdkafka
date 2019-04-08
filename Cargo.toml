@@ -40,3 +40,14 @@ dynamic_linking = ["rdkafka-sys/dynamic_linking"]
 external_lz4 = ["rdkafka-sys/external_lz4"]
 
 cmake_build = ["rdkafka-sys/cmake_build"]
+
+[profile.release]
+opt-level        = 3
+debug            = false
+rpath            = false
+lto              = 'thin'
+debug-assertions = false
+codegen-units    = 1
+panic            = 'unwind'
+incremental      = false
+overflow-checks  = false
