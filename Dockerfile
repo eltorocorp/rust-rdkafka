@@ -12,6 +12,7 @@ RUN apt-get install -y pkg-config
 RUN apt-get install -y valgrind
 RUN apt-get install -y zlib1g-dev
 RUN apt-get install -y python
+RUN apt-get install -y llvm-3.9-dev libclang-3.9-dev clang-3.9
 
 RUN apt-key add llvm-snapshot.gpg.key
 
