@@ -27,7 +27,7 @@ rand = "0.3.15"
 tokio = "0.1.7"
 
 [features]
-default = ["cmake_build"]
+default = []
 
 # Enable ssl and sasl support
 ssl = ["rdkafka-sys/ssl"]

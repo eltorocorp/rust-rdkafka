@@ -102,8 +102,11 @@ fn build_librdkafka() {
     if env::var("CARGO_FEATURE_EXTERNAL_LZ4").is_ok() {
         configure_flags.push("--enable-lz4");
     } else {
-        configure_flags.push("--disable-lz4");
+        configure_flags.push("--disable-lz4-ext");
     }
+
+    configure_flags.push("--cc=clang");
+    configure_flags.push("--enable-static");
 
     println!("Configuring librdkafka");
     run_command_or_fail("librdkafka", "./configure", configure_flags.as_slice());
@@ -142,8 +145,6 @@ fn build_librdkafka() {
     } else {
         config.define("WITH_SASL", "0");
     }
-    run_command_or_fail("librdkafka/src", "echo", &["'set_property(TARGET rdkafka PROPERTY INTERPROCEDURAL_OPTIMIZATION True)'", ">>", "CMakeLists.txt"]);
-    run_command_or_fail("librdkafka/src", "echo", &["'set(CMAKE_CXX_FLAGS_RELEASE \"-flto=\'thin\' -O3\")'", ">>", "CMakeLists.txt"]);
     let dst = config.build();
     println!("cargo:rustc-link-search=native={}/build/src", dst.display());
     println!("cargo:rustc-link-lib=static=rdkafka");
