@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     jq \
     coreutils
-ENV KAFKA_VERSION="1.0.2"
+ENV KAFKA_VERSION="2.2.0"
 ENV SCALA_VERSION="2.12"
 ENV KAFKA_GC_LOG_OPTS=" "
 ENV KAFKA_HOME /opt/kafka_${SCALA_VERSION}-${KAFKA_VERSION}
