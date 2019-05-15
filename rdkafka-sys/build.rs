@@ -82,6 +82,42 @@ fn main() {
         .expect("failed to write bindings");
 }
 
+
+#[cfg(not(feature = "cmake_build"))]
+#[cfg(target_os= "darwin")]
+fn build_librdkafka() {
+    let mut configure_flags = Vec::new();
+
+    if env::var("CARGO_FEATURE_SASL").is_ok() {
+        configure_flags.push("--enable-sasl");
+        println!("cargo:rustc-link-lib=sasl2");
+    } else {
+        configure_flags.push("--disable-sasl");
+    }
+
+    if env::var("CARGO_FEATURE_SSL").is_ok() {
+        configure_flags.push("--enable-ssl");
+    } else {
+        configure_flags.push("--disable-ssl");
+    }
+
+    if env::var("CARGO_FEATURE_EXTERNAL_LZ4").is_ok() {
+        configure_flags.push("--enable-lz4");
+    } else {
+        configure_flags.push("--disable-lz4");
+    }
+
+    println!("Configuring librdkafka");
+    run_command_or_fail("librdkafka", "./configure", configure_flags.as_slice());
+
+    println!("Compiling librdkafka");
+    make_librdkafka();
+
+    println!("cargo:rustc-link-search=native={}/librdkafka/src",
+             env::current_dir().expect("Can't find current dir").display());
+    println!("cargo:rustc-link-lib=static=rdkafka");
+}
+
 #[cfg(not(feature = "cmake_build"))]
 fn build_librdkafka() {
     let mut configure_flags = Vec::new();
@@ -106,6 +142,7 @@ fn build_librdkafka() {
     }
 
     configure_flags.push("--cc=clang");
+    configure_flags.push("--cxx=clang++");
     configure_flags.push("--enable-static");
 
     println!("Configuring librdkafka");
