@@ -1,6 +1,6 @@
 //! This module contains type aliases for types defined in the auto-generated bindings.
-use std::{error, fmt};
 use std::ffi::CStr;
+use std::{error, fmt};
 
 use bindings;
 use helpers;
@@ -55,6 +55,30 @@ pub type RDKafkaGroupMemberInfo = bindings::rd_kafka_group_member_info;
 /// Native rdkafka group member information
 pub type RDKafkaHeaders = bindings::rd_kafka_headers_t;
 
+/// Native rdkafka queue
+pub type RDKafkaQueue = bindings::rd_kafka_queue_t;
+
+// Native rdkafka new topic object
+pub type RDKafkaNewTopic = bindings::rd_kafka_NewTopic_t;
+
+// Native rdkafka delete topic object
+pub type RDKafkaDeleteTopic = bindings::rd_kafka_DeleteTopic_t;
+
+// Native rdkafka new partitions object
+pub type RDKafkaNewPartitions = bindings::rd_kafka_NewPartitions_t;
+
+// Native rdkafka config resource
+pub type RDKafkaConfigResource = bindings::rd_kafka_ConfigResource_t;
+
+// Native rdkafka event
+pub type RDKafkaEvent = bindings::rd_kafka_event_t;
+
+// Native rdkafka admin options
+pub type RDKafkaAdminOptions = bindings::rd_kafka_AdminOptions_t;
+
+// Native rdkafka topic result
+pub type RDKafkaTopicResult = bindings::rd_kafka_topic_result_t;
+
 // ENUMS
 
 /// Client types
@@ -65,6 +89,15 @@ pub use bindings::rd_kafka_conf_res_t as RDKafkaConfRes;
 
 /// Response error
 pub use bindings::rd_kafka_resp_err_t as RDKafkaRespErr;
+
+/// Admin operation
+pub use bindings::rd_kafka_admin_op_t as RDKafkaAdminOp;
+
+/// Config resource type
+pub use bindings::rd_kafka_ResourceType_t as RDKafkaResourceType;
+
+/// Config source
+pub use bindings::rd_kafka_ConfigSource_t as RDKafkaConfigSource;
 
 /// Errors enum
 
@@ -334,8 +367,22 @@ pub enum RDKafkaError {
     ListenerNotFound = 72,
     /// Topic deletion is disabled
     TopicDeletionDisabled = 73,
+    /// Leader epoch is older than broker epoch
+    FencedLeaderEpoch = 74,
+    /// Leader epoch is newer than broker epoch
+    UnknownLeaderEpoch = 75,
     /// Unsupported compression type
-    UnsupportedCompressionType = 74,
+    UnsupportedCompressionType = 76,
+    /// Broker epoch has changed
+    StaleBrokerEpoch = 77,
+    /// Leader high watermark is not caught up
+    OffsetNotAvailable = 78,
+    /// Group member needs a valid member ID
+    MemberIdRequired = 79,
+    /// Preferred leader was not available
+    PreferredLeaderNotAvailable = 80,
+    /// Consumer group has reached maximum size
+    GroupMaxSizeReached = 81,
     #[doc(hidden)]
     EndAll,
 }
@@ -351,9 +398,11 @@ impl fmt::Display for RDKafkaError {
         let description = match helpers::primitive_to_rd_kafka_resp_err_t(*self as i32) {
             Some(err) => {
                 let cstr = unsafe { bindings::rd_kafka_err2str(err) };
-                unsafe { CStr::from_ptr(cstr) }.to_string_lossy().into_owned()
-            },
-            None => "Unknown error".to_owned()
+                unsafe { CStr::from_ptr(cstr) }
+                    .to_string_lossy()
+                    .into_owned()
+            }
+            None => "Unknown error".to_owned(),
         };
 
         write!(f, "{:?} ({})", self, description)
@@ -373,7 +422,10 @@ mod tests {
     #[test]
     fn test_display_error() {
         let error: RDKafkaError = RDKafkaRespErr::RD_KAFKA_RESP_ERR__PARTITION_EOF.into();
-        assert_eq!("PartitionEOF (Broker: No more messages)", format!("{}", error));
+        assert_eq!(
+            "PartitionEOF (Broker: No more messages)",
+            format!("{}", error)
+        );
         assert_eq!("PartitionEOF", format!("{:?}", error));
     }
 }

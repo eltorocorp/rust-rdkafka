@@ -1,19 +1,21 @@
 #![allow(dead_code)]
-extern crate rdkafka;
-extern crate rand;
 extern crate futures;
+extern crate rand;
+extern crate rdkafka;
+extern crate regex;
 
-use rand::Rng;
 use futures::*;
+use rand::Rng;
+use regex::Regex;
 
 use rdkafka::client::ClientContext;
 use rdkafka::config::ClientConfig;
-use rdkafka::producer::{FutureProducer, FutureRecord};
 use rdkafka::message::ToBytes;
+use rdkafka::producer::{FutureProducer, FutureRecord};
 use rdkafka::statistics::Statistics;
 
 use std::collections::HashMap;
-use std::env;
+use std::env::{self, VarError};
 
 #[macro_export]
 macro_rules! map(
@@ -45,6 +47,37 @@ pub fn rand_test_group() -> String {
 pub fn get_bootstrap_server() -> String {
     env::var("KAFKA_HOST").unwrap_or_else(|_| "localhost:9092".to_owned())
 }
+
+pub fn get_broker_version() -> KafkaVersion {
+    // librdkafka doesn't expose this directly, sadly.
+    match env::var("KAFKA_VERSION") {
+        Ok(v) => {
+            let regex = Regex::new(r"^(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:\.(\d+))?$").unwrap();
+            match regex.captures(&v) {
+                Some(captures) => {
+                    let extract = |i| {
+                        captures
+                            .get(i)
+                            .map(|m| m.as_str().parse().unwrap())
+                            .unwrap_or(0)
+                    };
+                    KafkaVersion(extract(1), extract(2), extract(3), extract(4))
+                }
+                None => panic!("KAFKA_VERSION env var was not in expected [n[.n[.n[.n]]]] format"),
+            }
+        }
+        Err(VarError::NotUnicode(_)) => {
+            panic!("KAFKA_VERSION env var contained non-unicode characters")
+        }
+        // If the environment variable is unset, assume we're running the latest version.
+        Err(VarError::NotPresent) => {
+            KafkaVersion(std::u32::MAX, std::u32::MAX, std::u32::MAX, std::u32::MAX)
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub struct KafkaVersion(pub u32, pub u32, pub u32, pub u32);
 
 pub struct TestContext {
     _some_data: i64, // Add some data so that valgrind can check proper allocation
@@ -79,7 +112,6 @@ where
         .set("statistics.interval.ms", "500")
         .set("api.version.request", "true")
         .set("debug", "all")
-        .set("produce.offset.report", "true")
         .set("message.timeout.ms", "30000")
         .create_with_context::<TestContext, FutureProducer<_>>(prod_context)
         .expect("Producer creation error");
@@ -95,7 +127,8 @@ where
                     timestamp,
                     headers: None,
                 },
-                1000);
+                1000,
+            );
             (id, future)
         })
         .collect::<Vec<_>>();
@@ -111,7 +144,6 @@ where
 
     message_map
 }
-
 
 pub fn value_fn(id: i32) -> String {
     format!("Message {}", id)

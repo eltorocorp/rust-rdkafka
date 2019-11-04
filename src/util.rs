@@ -2,6 +2,7 @@
 use crate::rdsys;
 
 use std::ffi::CStr;
+use std::os::raw::c_char;
 use std::os::raw::c_void;
 use std::ptr;
 use std::slice;
@@ -32,7 +33,8 @@ pub(crate) fn timeout_to_ms<T: Into<Option<Duration>>>(timeout: T) -> i32 {
 pub fn millis_to_epoch(time: SystemTime) -> i64 {
     duration_to_millis(
         time.duration_since(UNIX_EPOCH)
-            .unwrap_or_else(|_| Duration::from_secs(0))) as i64
+            .unwrap_or_else(|_| Duration::from_secs(0)),
+    ) as i64
 }
 
 /// Returns the current time in millis since unix epoch.
@@ -42,7 +44,7 @@ pub fn current_time_millis() -> i64 {
 
 /// Converts a pointer to an array to an optional slice. If the pointer is null, `None` will
 /// be returned.
-pub(crate) unsafe fn ptr_to_opt_slice<'a, T>(ptr: *const c_void, size: usize) -> Option<&'a[T]> {
+pub(crate) unsafe fn ptr_to_opt_slice<'a, T>(ptr: *const c_void, size: usize) -> Option<&'a [T]> {
     if ptr.is_null() {
         None
     } else {
@@ -52,7 +54,7 @@ pub(crate) unsafe fn ptr_to_opt_slice<'a, T>(ptr: *const c_void, size: usize) ->
 
 /// Converts a pointer to an array to a slice. If the pointer is null or the size is zero,
 /// a zero-length slice will be returned.
-pub(crate) unsafe fn ptr_to_slice<'a, T>(ptr: *const c_void, size: usize) -> &'a[T] {
+pub(crate) unsafe fn ptr_to_slice<'a, T>(ptr: *const c_void, size: usize) -> &'a [T] {
     if ptr.is_null() || size == 0 {
         &[][..]
     } else {
@@ -74,8 +76,7 @@ impl IntoOpaque for () {
         ptr::null_mut()
     }
 
-    unsafe fn from_ptr(_: *mut c_void) -> Self {
-    }
+    unsafe fn from_ptr(_: *mut c_void) -> Self {}
 }
 
 impl IntoOpaque for usize {
@@ -98,16 +99,72 @@ impl<T: Send + Sync> IntoOpaque for Box<T> {
     }
 }
 
-
 // TODO: check if the implementation returns a copy of the data and update the documentation
 /// Converts a byte array representing a C string into a String.
-pub unsafe fn bytes_cstr_to_owned(bytes_cstr: &[i8]) -> String {
-    CStr::from_ptr(bytes_cstr.as_ptr()).to_string_lossy().into_owned()
+pub unsafe fn bytes_cstr_to_owned(bytes_cstr: &[c_char]) -> String {
+    CStr::from_ptr(bytes_cstr.as_ptr() as *const c_char)
+        .to_string_lossy()
+        .into_owned()
 }
 
 /// Converts a C string into a String.
-pub unsafe fn cstr_to_owned(cstr: *const i8) -> String {
-    CStr::from_ptr(cstr).to_string_lossy().into_owned()
+pub unsafe fn cstr_to_owned(cstr: *const c_char) -> String {
+    CStr::from_ptr(cstr as *const c_char)
+        .to_string_lossy()
+        .into_owned()
+}
+
+pub(crate) struct ErrBuf {
+    buf: [c_char; ErrBuf::MAX_ERR_LEN],
+}
+
+impl ErrBuf {
+    const MAX_ERR_LEN: usize = 512;
+
+    pub fn new() -> ErrBuf {
+        ErrBuf {
+            buf: [0; ErrBuf::MAX_ERR_LEN],
+        }
+    }
+
+    pub fn as_mut_ptr(&mut self) -> *mut c_char {
+        self.buf.as_mut_ptr()
+    }
+
+    pub fn len(&self) -> usize {
+        self.buf.len()
+    }
+
+    pub fn to_string(&self) -> String {
+        unsafe { bytes_cstr_to_owned(&self.buf) }
+    }
+}
+
+impl Default for ErrBuf {
+    fn default() -> ErrBuf {
+        ErrBuf::new()
+    }
+}
+
+pub(crate) trait WrappedCPointer {
+    type Target;
+
+    fn ptr(&self) -> *mut Self::Target;
+
+    fn is_null(&self) -> bool {
+        self.ptr().is_null()
+    }
+}
+
+/// Converts a container into a C array.
+pub(crate) trait AsCArray<T: WrappedCPointer> {
+    fn as_c_array(&self) -> *mut *mut T::Target;
+}
+
+impl<T: WrappedCPointer> AsCArray<T> for Vec<T> {
+    fn as_c_array(&self) -> *mut *mut T::Target {
+        self.as_ptr() as *mut *mut T::Target
+    }
 }
 
 #[cfg(test)]
@@ -122,4 +179,3 @@ mod tests {
         assert_eq!(duration_to_millis(Duration::new(5, 123_000_000)), 5123);
     }
 }
-

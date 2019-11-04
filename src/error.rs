@@ -32,6 +32,12 @@ impl IsError for RDKafkaConfRes {
 /// Represents all Kafka errors. Check the underlying `RDKafkaError` to get details.
 #[derive(Clone, PartialEq, Eq)]
 pub enum KafkaError {
+    /// Creation of admin operation failed.
+    AdminOpCreation(String),
+    /// The admin operation itself failed.
+    AdminOp(RDKafkaError),
+    /// The client was dropped before the operation completed.
+    Canceled,
     /// Invalid client configuration.
     ClientConfig(RDKafkaConfRes, String, String, String),
     /// Client creation failed.
@@ -56,6 +62,8 @@ pub enum KafkaError {
     OffsetFetch(RDKafkaError),
     /// End of partition reached.
     PartitionEOF(i32),
+    /// Pause/Resume failed.
+    PauseResume(String),
     /// Setting partition offset failed.
     SetPartitionOffset(RDKafkaError),
     /// Offset store failed.
@@ -67,21 +75,51 @@ pub enum KafkaError {
 impl fmt::Debug for KafkaError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            KafkaError::ClientConfig(_, ref desc, ref key, ref value) => write!(f, "KafkaError (Client config error: {} {} {})", desc, key, value),
-            KafkaError::ClientCreation(ref err) => write!(f, "KafkaError (Client creation error: {})", err),
-            KafkaError::ConsumerCommit(err) => write!(f, "KafkaError (Consumer commit error: {})", err),
+            KafkaError::AdminOp(err) => write!(f, "KafkaError (Admin operation error: {})", err),
+            KafkaError::AdminOpCreation(ref err) => {
+                write!(f, "KafkaError (Admin operation creation error: {})", err)
+            }
+            KafkaError::Canceled => write!(f, "KafkaError (Client dropped)"),
+            KafkaError::ClientConfig(_, ref desc, ref key, ref value) => write!(
+                f,
+                "KafkaError (Client config error: {} {} {})",
+                desc, key, value
+            ),
+            KafkaError::ClientCreation(ref err) => {
+                write!(f, "KafkaError (Client creation error: {})", err)
+            }
+            KafkaError::ConsumerCommit(err) => {
+                write!(f, "KafkaError (Consumer commit error: {})", err)
+            }
             KafkaError::Global(err) => write!(f, "KafkaError (Global error: {})", err),
-            KafkaError::GroupListFetch(err) => write!(f, "KafkaError (Group list fetch error: {})", err),
-            KafkaError::MessageConsumption(err) => write!(f, "KafkaError (Message consumption error: {})", err),
-            KafkaError::MessageProduction(err) => write!(f, "KafkaError (Message production error: {})", err),
-            KafkaError::MetadataFetch(err) => write!(f, "KafkaError (Metadata fetch error: {})", err),
-            KafkaError::NoMessageReceived => write!(f, "No message received within the given poll interval"),
+            KafkaError::GroupListFetch(err) => {
+                write!(f, "KafkaError (Group list fetch error: {})", err)
+            }
+            KafkaError::MessageConsumption(err) => {
+                write!(f, "KafkaError (Message consumption error: {})", err)
+            }
+            KafkaError::MessageProduction(err) => {
+                write!(f, "KafkaError (Message production error: {})", err)
+            }
+            KafkaError::MetadataFetch(err) => {
+                write!(f, "KafkaError (Metadata fetch error: {})", err)
+            }
+            KafkaError::NoMessageReceived => {
+                write!(f, "No message received within the given poll interval")
+            }
             KafkaError::Nul(_) => write!(f, "FFI null error"),
             KafkaError::OffsetFetch(err) => write!(f, "KafkaError (Offset fetch error: {})", err),
             KafkaError::PartitionEOF(part_n) => write!(f, "KafkaError (Partition EOF: {})", part_n),
-            KafkaError::SetPartitionOffset(err) => write!(f, "KafkaError (Set partition offset error: {})", err),
+            KafkaError::PauseResume(ref err) => {
+                write!(f, "KafkaError (Pause/resume error: {})", err)
+            }
+            KafkaError::SetPartitionOffset(err) => {
+                write!(f, "KafkaError (Set partition offset error: {})", err)
+            }
             KafkaError::StoreOffset(err) => write!(f, "KafkaError (Store offset error: {})", err),
-            KafkaError::Subscription(ref err) => write!(f, "KafkaError (Subscription error: {})", err),
+            KafkaError::Subscription(ref err) => {
+                write!(f, "KafkaError (Subscription error: {})", err)
+            }
         }
     }
 }
@@ -89,7 +127,14 @@ impl fmt::Debug for KafkaError {
 impl fmt::Display for KafkaError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            KafkaError::ClientConfig(_, ref desc, ref key, ref value) => write!(f, "Client config error: {} {} {}", desc, key, value),
+            KafkaError::AdminOp(err) => write!(f, "Admin operation error: {}", err),
+            KafkaError::AdminOpCreation(ref err) => {
+                write!(f, "Admin operation creation error: {}", err)
+            }
+            KafkaError::Canceled => write!(f, "KafkaError (Client dropped)"),
+            KafkaError::ClientConfig(_, ref desc, ref key, ref value) => {
+                write!(f, "Client config error: {} {} {}", desc, key, value)
+            }
             KafkaError::ClientCreation(ref err) => write!(f, "Client creation error: {}", err),
             KafkaError::ConsumerCommit(err) => write!(f, "Consumer commit error: {}", err),
             KafkaError::Global(err) => write!(f, "Global error: {}", err),
@@ -97,10 +142,13 @@ impl fmt::Display for KafkaError {
             KafkaError::MessageConsumption(err) => write!(f, "Message consumption error: {}", err),
             KafkaError::MessageProduction(err) => write!(f, "Message production error: {}", err),
             KafkaError::MetadataFetch(err) => write!(f, "Meta data fetch error: {}", err),
-            KafkaError::NoMessageReceived => write!(f, "No message received within the given poll interval"),
+            KafkaError::NoMessageReceived => {
+                write!(f, "No message received within the given poll interval")
+            }
             KafkaError::Nul(_) => write!(f, "FFI nul error"),
             KafkaError::OffsetFetch(err) => write!(f, "Offset fetch error: {}", err),
             KafkaError::PartitionEOF(part_n) => write!(f, "Partition EOF: {}", part_n),
+            KafkaError::PauseResume(ref err) => write!(f, "Pause/resume error: {}", err),
             KafkaError::SetPartitionOffset(err) => write!(f, "Set partition offset error: {}", err),
             KafkaError::StoreOffset(err) => write!(f, "Store offset error: {}", err),
             KafkaError::Subscription(ref err) => write!(f, "Subscription error: {}", err),
@@ -111,6 +159,9 @@ impl fmt::Display for KafkaError {
 impl error::Error for KafkaError {
     fn description(&self) -> &str {
         match *self {
+            KafkaError::AdminOp(_) => "Admin operation error",
+            KafkaError::AdminOpCreation(_) => "Admin operation creation error",
+            KafkaError::Canceled => "Client dropped",
             KafkaError::ClientConfig(_, _, _, _) => "Client config error",
             KafkaError::ClientCreation(_) => "Client creation error",
             KafkaError::ConsumerCommit(_) => "Consumer commit error",
@@ -123,6 +174,7 @@ impl error::Error for KafkaError {
             KafkaError::Nul(_) => "FFI nul error",
             KafkaError::OffsetFetch(_) => "Offset fetch error",
             KafkaError::PartitionEOF(_) => "Partition EOF error",
+            KafkaError::PauseResume(_) => "Pause/resume error",
             KafkaError::SetPartitionOffset(_) => "Set partition offset error",
             KafkaError::StoreOffset(_) => "Store offset error",
             KafkaError::Subscription(_) => "Subscription error",
@@ -130,8 +182,11 @@ impl error::Error for KafkaError {
     }
 
     #[allow(clippy::match_same_arms)]
-    fn cause(&self) -> Option<&error::Error> {
+    fn cause(&self) -> Option<&dyn error::Error> {
         match *self {
+            KafkaError::AdminOp(_) => None,
+            KafkaError::AdminOpCreation(_) => None,
+            KafkaError::Canceled => None,
             KafkaError::ClientConfig(_, _, _, _) => None,
             KafkaError::ClientCreation(_) => None,
             KafkaError::ConsumerCommit(ref err) => Some(err),
@@ -144,6 +199,7 @@ impl error::Error for KafkaError {
             KafkaError::Nul(_) => None,
             KafkaError::OffsetFetch(ref err) => Some(err),
             KafkaError::PartitionEOF(_) => None,
+            KafkaError::PauseResume(_) => None,
             KafkaError::SetPartitionOffset(ref err) => Some(err),
             KafkaError::StoreOffset(ref err) => Some(err),
             KafkaError::Subscription(_) => None,

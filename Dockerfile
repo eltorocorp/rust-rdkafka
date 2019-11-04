@@ -1,28 +1,27 @@
-FROM ubuntu:latest
+FROM ubuntu:16.04
 
-COPY . /rdkafka
+RUN apt-get update && apt-get install -y build-essential \
+    curl \
+    openssl libssl-dev \
+    pkg-config \
+    python \
+    valgrind \
+    zlib1g-dev
 
-WORKDIR /rdkafka
-
-RUN apt-get update
-RUN apt-get install -y build-essential gnupg
-RUN apt-get install -y curl
-RUN apt-get install -y openssl libssl-dev
-RUN apt-get install -y pkg-config
-RUN apt-get install -y valgrind
-RUN apt-get install -y zlib1g-dev
-RUN apt-get install -y python
-
-RUN echo "$(curl https://apt.llvm.org/llvm-snapshot.gpg.key)" | apt-key add -t
-
-RUN echo "\ndeb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-8 main" | tee -a /etc/apt/sources.list
-RUN echo "\ndeb-src http://apt.llvm.org/bionic/ llvm-toolchain-bionic-8 main" | tee -a /etc/apt/sources.list
-
-RUN apt-get update
-RUN apt-get install -y lldb-8 lld-8 clang-8 llvm-8-dev libclang-8-dev
-
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2019-10-17
 ENV PATH /root/.cargo/bin/:$PATH
+
+# # Create dummy project for rdkafka
+# COPY Cargo.toml /rdkafka/
+# RUN mkdir -p /rdkafka/src && echo "fn main() {}" > /rdkafka/src/main.rs
+#
+# # Create dummy project for rdkafka
+# RUN mkdir /rdkafka/rdkafka-sys
+# COPY rdkafka-sys/Cargo.toml /rdkafka/rdkafka-sys
+# RUN mkdir -p /rdkafka/rdkafka-sys/src && touch /rdkafka/rdkafka-sys/src/lib.rs
+# RUN echo "fn main() {}" > /rdkafka/rdkafka-sys/build.rs
+#
+# RUN cd /rdkafka && test --no-run
 
 COPY docker/run_tests.sh /rdkafka/
 
